@@ -2,5 +2,5 @@ var available_effects = [{
     'name' : 'slimbox2 2.05',
     'package_version' : '1.0',
     'download_url' : 'http://xiaoxu125634.github.io/Images-Lazyload-and-Lightbox/data/slimbox2_2.05(v1.0).zip',
-    'description' => ''
+    'description' : ''
 }];
