@@ -105,14 +105,21 @@ class WeDevs_Settings_API {
      */
     function admin_init() {
         //register settings sections
-        foreach ( $this->settings_sections as $section ) {
-            if ( false == get_option( $section['id'] ) ) {
-                add_option( $section['id'] );
+        foreach ( $this->settings_sections as $ind=>$section ) {
+        	if ( (isset($section['html']) && !empty($section['html']))
+        			|| (isset($section['callback']) && !empty($section['callback'])) ) {
+        		$this->settings_sections[$ind]['it_is_custom'] = 1;
+        	}
+
+            if ( isset($this->settings_fields[$section['id']]) && (false===get_option($section['id'])) ) {
+                add_option( $section['id'], (isset($section['init_value'])?$section['init_value']:'') );
             }
 
-            if ( isset($section['desc']) && !empty($section['desc']) ) {
-                $section['desc'] = '<div class="inside">'.$section['desc'].'</div>';
-                $callback = create_function('', 'echo "'.str_replace('"', '\"', $section['desc']).'";');
+            if (isset($section['callback']) && !empty($section['callback'])) {
+            	$callback = $section['callback'];
+            } elseif ( isset($section['html']) && !empty($section['html']) ) {
+                $section['html'] = '<div class="inside">'.$section['html'].'</div>';
+                $callback = create_function('', 'echo "'.str_replace('"', '\"', $section['html']).'";');
             } else {
                 $callback = '__return_false';
             }
@@ -121,9 +128,8 @@ class WeDevs_Settings_API {
         }
 
         //register settings fields
-        foreach ( $this->settings_fields as $section => $field ) {
-            foreach ( $field as $option ) {
-
+        foreach ( $this->settings_fields as $section => $fields ) {
+            foreach ( $fields as &$option ) {
                 $type = isset( $option['type'] ) ? $option['type'] : 'text';
 
                 $args = array(
@@ -136,13 +142,16 @@ class WeDevs_Settings_API {
                     'std' => isset( $option['default'] ) ? $option['default'] : '',
                     'sanitize_callback' => isset( $option['sanitize_callback'] ) ? $option['sanitize_callback'] : '',
                 );
+
                 add_settings_field( $section . '[' . $option['name'] . ']', $option['label'], array( $this, 'callback_' . $type ), $section, $section, $args );
             }
         }
 
         // creates our settings in the options table
-        foreach ( $this->settings_sections as $section ) {
-            register_setting( $section['id'], $section['id'], array( $this, 'sanitize_options' ) );
+        foreach ( $this->settings_sections as &$section ) {
+        	if ( isset($this->settings_fields[$section['id']]) ) {
+            	register_setting( $section['id'], $section['id'], array( $this, 'sanitize_options' ) );
+        	}
         }
     }
 
@@ -421,21 +430,24 @@ class WeDevs_Settings_API {
         ?>
         <div class="metabox-holder">
             <div class="postbox">
-                <?php foreach ( $this->settings_sections as $form ) { ?>
-                    <div id="<?php echo $form['id']; ?>" class="group">
-                        <form method="post" action="options.php">
+                <?php foreach ( $this->settings_sections as $form ): ?>
+				<div id="<?php echo $form['id']; ?>" class="group">
+                	<?php if ( isset($this->settings_fields[$form['id']]) ): ?>
+					<form method="post" action="options.php">
+						<?php do_action( 'wsa_form_top_' . $form['id'], $form ); ?>
+						<?php settings_fields( $form['id'] ); ?>
+						<?php do_settings_sections( $form['id'] ); ?>
+						<?php do_action( 'wsa_form_bottom_' . $form['id'], $form ); ?>
 
-                            <?php do_action( 'wsa_form_top_' . $form['id'], $form ); ?>
-                            <?php settings_fields( $form['id'] ); ?>
-                            <?php do_settings_sections( $form['id'] ); ?>
-                            <?php do_action( 'wsa_form_bottom_' . $form['id'], $form ); ?>
-
-                            <div style="padding-left: 10px">
-                                <?php submit_button(); ?>
-                            </div>
-                        </form>
-                    </div>
-                <?php } ?>
+						<div style="padding-left: 10px">
+							<?php submit_button(); ?>
+						</div>
+					</form>
+                	<?php else: ?>
+                		<?php do_settings_sections( $form['id'] ); ?>
+					<?php endif; ?>
+				</div>
+                <?php endforeach ?>
             </div>
         </div>
         <?php

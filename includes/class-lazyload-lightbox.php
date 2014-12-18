@@ -57,6 +57,12 @@ class Lazyload_Lightbox {
 	 */
 	protected $version;
 
+	protected $msgs = FALSE;
+	protected $configs = FALSE;
+	protected $effects = FALSE;
+	protected $all_effects = FALSE;
+	protected $default_settings = FALSE;
+
 	/**
 	 * Define the core functionality of the plugin.
 	 *
@@ -69,12 +75,24 @@ class Lazyload_Lightbox {
 	public function __construct() {
 
 		$this->lazyload_lightbox = 'lazyload-lightbox';
-		$this->version = '1.0.0';
+		$this->version = LAZYLOAD_LIGHTBOX_PLUGIN_VERSION;
 
 		$this->load_dependencies();
 		$this->set_locale();
-		$this->define_admin_hooks();
-		$this->define_public_hooks();
+
+		add_filter($this->lazyload_lightbox.'-get_msgs', array($this, 'get_msgs'));
+		add_filter($this->lazyload_lightbox.'-get_configs', array($this, 'get_configs'));
+		add_filter($this->lazyload_lightbox.'-get_effects', array($this, 'get_effects'));
+		add_filter($this->lazyload_lightbox.'-get_all_effects', array($this, 'get_all_effects'));
+		add_filter($this->lazyload_lightbox.'-get_default_settings', array($this, 'get_default_settings'));
+
+		if (is_admin()) {
+			$this->define_admin_hooks();
+		} elseif (in_array($GLOBALS['pagenow'], array('wp-login.php', 'wp-register.php'))) {
+			
+		} else {
+			$this->define_public_hooks();
+		}
 
 	}
 
@@ -100,24 +118,24 @@ class Lazyload_Lightbox {
 		 * The class responsible for orchestrating the actions and filters of the
 		 * core plugin.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-lazyload-lightbox-loader.php';
+		require_once LAZYLOAD_LIGHTBOX_PLUGIN_DIR . 'includes/class-lazyload-lightbox-loader.php';
 
 		/**
 		 * The class responsible for defining internationalization functionality
 		 * of the plugin.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-lazyload-lightbox-i18n.php';
+		require_once LAZYLOAD_LIGHTBOX_PLUGIN_DIR . 'includes/class-lazyload-lightbox-i18n.php';
 
 		/**
 		 * The class responsible for defining all actions that occur in the Dashboard.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-lazyload-lightbox-admin.php';
+// 		require_once LAZYLOAD_LIGHTBOX_PLUGIN_DIR . 'admin/class-lazyload-lightbox-admin.php';
 
 		/**
 		 * The class responsible for defining all actions that occur in the public-facing
 		 * side of the site.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'public/class-lazyload-lightbox-public.php';
+// 		require_once LAZYLOAD_LIGHTBOX_PLUGIN_DIR . 'public/class-lazyload-lightbox-public.php';
 
 		$this->loader = new Lazyload_Lightbox_Loader();
 
@@ -150,13 +168,12 @@ class Lazyload_Lightbox {
 	 */
 	private function define_admin_hooks() {
 
+		require_once LAZYLOAD_LIGHTBOX_PLUGIN_DIR . 'admin/class-lazyload-lightbox-admin.php';
+
 		$plugin_admin = new Lazyload_Lightbox_Admin( $this->get_lazyload_lightbox(), $this->get_version() );
 
-		//$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
-		//$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
-
-		$this->loader->add_action( 'admin_menu', $plugin_admin, 'admin_menu' );
-		$this->loader->add_action( 'admin_init', $plugin_admin, 'admin_init' );
+// 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
+// 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 
 	}
 
@@ -169,10 +186,12 @@ class Lazyload_Lightbox {
 	 */
 	private function define_public_hooks() {
 
+		require_once LAZYLOAD_LIGHTBOX_PLUGIN_DIR . 'public/class-lazyload-lightbox-public.php';
+
 		$plugin_public = new Lazyload_Lightbox_Public( $this->get_lazyload_lightbox(), $this->get_version() );
 
-		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
-		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
+// 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
+// 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
 
 	}
 
@@ -214,6 +233,50 @@ class Lazyload_Lightbox {
 	 */
 	public function get_version() {
 		return $this->version;
+	}
+
+	public function get_msgs() {
+		return $this->msgs;
+	}
+
+	public function get_configs() {
+		if ($this->configs === FALSE || $this->configs === '') {
+			$this->configs = array(
+				'lazyload' => get_option('lazyload_lightbox_lazyload'),
+				'lightbox' => get_option('lazyload_lightbox_lightbox'),
+				'html' => get_option('lazyload_lightbox_html'),
+			);
+		}
+		return $this->configs;
+	}
+
+	public function get_effects() {
+		if ($this->effects === FALSE) {
+			require_once LAZYLOAD_LIGHTBOX_PLUGIN_DIR . 'includes/effect-tool.php';
+			$this->effects = Effect_Tool::get_effects();
+		}
+		return $this->effects;
+	}
+
+	public function get_all_effects($input) {
+		if ($this->all_effects === FALSE || $input) {
+			require_once LAZYLOAD_LIGHTBOX_PLUGIN_DIR . 'includes/effect-tool.php';
+			$this->all_effects = Effect_Tool::get_all_effects();
+		}
+		return $this->all_effects;
+	}
+
+	public function get_default_settings() {
+		if ($this->default_settings === FALSE) {
+			require_once LAZYLOAD_LIGHTBOX_PLUGIN_DIR . 'includes/default-setting.php';
+			$this->default_settings = array(
+				'scopes' => Default_Setting::get_scopes(),
+				'default_lightbox_selector' => Default_Setting::get_default_lightbox_selector(),
+				'lazyload_icons' => Default_Setting::get_lazyload_icons(),
+				'remote_url_effects' => Default_Setting::get_remote_url_effects(),
+			);
+		}
+		return $this->default_settings;
 	}
 
 }

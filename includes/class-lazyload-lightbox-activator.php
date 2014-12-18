@@ -30,7 +30,8 @@ class Lazyload_Lightbox_Activator {
 	 * @since    1.0.0
 	 */
 	public static function activate() {
-
+		require_once LAZYLOAD_LIGHTBOX_PLUGIN_DIR . 'includes/effect-tool.php';
+		Effect_Tool::init_effects();
 	}
 
 }
