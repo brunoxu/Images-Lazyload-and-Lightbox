@@ -111,6 +111,19 @@ class Lazyload_Lightbox_Public {
 	}
 
 	function apply_lazyload() {
+		add_action('template_redirect', 'lazyload_lightbox_enqueue_scripts');
+		function lazyload_lightbox_enqueue_scripts() {
+			$skip_lazyload = apply_filters('lazyload_lightbox_skip_lazyload', false);
+
+			// don't lazyload for feeds, previews
+			if( $skip_lazyload || is_feed() || is_preview() ) {
+				return;
+			}
+
+			wp_enqueue_style('responsively-lazy', plugin_dir_url( __FILE__ ).'responsively-lazy/1.2.1/responsivelyLazy.min.css');
+			wp_enqueue_script('responsively-lazy', plugin_dir_url( __FILE__ ).'responsively-lazy/1.2.1/responsivelyLazy.min.js');
+		}
+
 		global $configs;
 		$configs = apply_filters($this->lazyload_lightbox.'-get_configs', null);
 		if (!$configs['lazyload']['lazyload']) return;
@@ -139,25 +152,25 @@ class Lazyload_Lightbox_Public {
 			}
 
 			global $configs;
-	
+
 			if ($configs['lazyload']['lazyload_image_strict_match']) {
 				$regexp = "/<img([^<>]*)\.(bmp|gif|jpeg|jpg|png)([^<>]*)>/i";
 			} else {
 				$regexp = "/<img([^<>]*)>/i";
 			}
-	
+
 			$content = preg_replace_callback(
 				$regexp,
 				"lazyload_lightbox_lazyimg_str_handler",
 				$content
 			);
-	
+
 			return $content;
 		}
 		function lazyload_lightbox_lazyimg_str_handler($matches)
 		{
 			$lazyimg_str = $matches[0];
-	
+
 			// no need to use lazy load
 			if (stripos($lazyimg_str, 'src=') === FALSE) {
 				return $lazyimg_str;
@@ -168,7 +181,7 @@ class Lazyload_Lightbox_Public {
 			if (preg_match("/\/plugins\/wp-postratings\//i", $lazyimg_str)) {
 				return $lazyimg_str;
 			}
-	
+
 			if (preg_match("/width=/i", $lazyimg_str)
 					|| preg_match("/width:/i", $lazyimg_str)
 					|| preg_match("/height=/i", $lazyimg_str)
@@ -184,28 +197,42 @@ class Lazyload_Lightbox_Public {
 					$alt_image_src = LAZYLOAD_LIGHTBOX_PLUGIN_URL."assets/blank_250x250.gif";
 				}
 			}
-	
+
 			if (stripos($lazyimg_str, "class=") === FALSE) {
 				$lazyimg_str = preg_replace(
 					"/<img(.*)>/i",
-					'<img class="sl_lazyimg"$1>',
+					'<img class="ls_lazyimg"$1>',
 					$lazyimg_str
 				);
 			} else {
 				$lazyimg_str = preg_replace(
 					"/<img(.*)class=['\"]([\w\-\s]*)['\"](.*)>/i",
-					'<img$1class="$2 sl_lazyimg"$3>',
+					'<img$1class="$2 ls_lazyimg"$3>',
 					$lazyimg_str
 				);
 			}
-	
-			$regexp = "/<img([^<>]*)src=['\"]([^<>'\"]*)['\"]([^<>]*)>/i";
-			$replace = '<img$1src="'.$alt_image_src.'" file="$2"$3><noscript>'.$matches[0].'</noscript>';
-			$lazyimg_str = preg_replace(
-				$regexp,
-				$replace,
-				$lazyimg_str
-			);
+
+			if (stripos($lazyimg_str,'srcset=')) {
+				if (!stripos($lazyimg_str,'data-srcset=')) {
+					$regexp = "/<img([^<>]*)srcset=['\"]([^<>'\"]*)['\"]([^<>]*)>/i";
+					$replace = '<img$1srcset="data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-srcset="$2"$3>';
+					$lazyimg_str = preg_replace(
+						$regexp,
+						$replace,
+						$lazyimg_str
+					);
+					$lazyimg_str = str_ireplace('ls_lazyimg','responsively-lazy',$lazyimg_str);
+				}
+				$lazyimg_str = str_ireplace('ls_lazyimg','',$lazyimg_str);
+			} else {
+				$regexp = "/<img([^<>]*)src=['\"]([^<>'\"]*)['\"]([^<>]*)>/i";
+				$replace = '<img$1src="'.$alt_image_src.'" file="$2"$3><noscript>'.$matches[0].'</noscript>';
+				$lazyimg_str = preg_replace(
+					$regexp,
+					$replace,
+					$lazyimg_str
+				);
+			}
 	
 			return $lazyimg_str;
 		}
@@ -217,7 +244,7 @@ class Lazyload_Lightbox_Public {
 			print('
 <!-- '.LAZYLOAD_LIGHTBOX_PLUGIN_NAME.' '.LAZYLOAD_LIGHTBOX_PLUGIN_VERSION.' - lazyload css and js -->
 <style type="text/css">
-.sl_lazyimg{
+.ls_lazyimg{
 opacity:0.1;filter:alpha(opacity=10);
 background:url('.LAZYLOAD_LIGHTBOX_PLUGIN_URL.$default_settings['lazyload_icons'][$configs['lazyload']["icon"]].') no-repeat center center;
 }
@@ -225,7 +252,7 @@ background:url('.LAZYLOAD_LIGHTBOX_PLUGIN_URL.$default_settings['lazyload_icons'
 
 <noscript>
 <style type="text/css">
-.sl_lazyimg{display:none;}
+.ls_lazyimg{display:none;}
 </style>
 </noscript>
 
@@ -246,7 +273,18 @@ Array.prototype.pull=function(content){
 };
 
 jQuery(document).ready(function($) {
-window._lazyimgs = $("img.sl_lazyimg");
+$(document).bind("lazyimgs",function(){
+	if (!window._lazyimgs) {
+		window._lazyimgs = $("img.ls_lazyimg");
+	} else {
+		var _lazyimgs_new = $("img.ls_lazyimg:not([lazyloadindexed=1])");
+		if (_lazyimgs_new.length > 0) {
+			window._lazyimgs.add(_lazyimgs_new);
+		}
+	}
+	window._lazyimgs.attr("lazyloadindexed", 1);
+});
+$(document).trigger("lazyimgs");
 if (_lazyimgs.length == 0) {
 	return;
 }
