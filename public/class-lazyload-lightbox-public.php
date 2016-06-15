@@ -279,7 +279,7 @@ $(document).bind("lazyimgs",function(){
 	} else {
 		var _lazyimgs_new = $("img.ls_lazyimg:not([lazyloadindexed=1])");
 		if (_lazyimgs_new.length > 0) {
-			window._lazyimgs.add(_lazyimgs_new);
+			window._lazyimgs = $(window._lazyimgs.toArray().concat(_lazyimgs_new.toArray()));
 		}
 	}
 	window._lazyimgs.attr("lazyloadindexed", 1);
